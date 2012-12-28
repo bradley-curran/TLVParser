@@ -3,9 +3,11 @@ package com.bradleycurran.tlv;
 import java.util.LinkedList;
 import java.util.List;
 
-public class TLV {
+public class TLV
+{
 
-    public class TLVException extends Exception {
+    public class TLVException extends Exception
+    {
 
         private static final long serialVersionUID = -2427261641980591073L;
     }
@@ -22,11 +24,13 @@ public class TLV {
 
     private List<TLV> mChildren;
 
-    public TLV(byte[] value) throws TLVException {
+    public TLV(byte[] value) throws TLVException
+    {
         this(value, 0, value.length, TAG_TOPLEVEL);
     }
 
-    private TLV(byte[] value, int index, int length, int tag) throws TLVException {
+    private TLV(byte[] value, int index, int length, int tag) throws TLVException
+    {
         if (value == null)
             throw new IllegalArgumentException("value must not be null");
 
@@ -36,56 +40,66 @@ public class TLV {
         mTag = tag;
         mChildren = new LinkedList<TLV>();
 
-        if (isConstructed()) {
+        if (isConstructed())
+        {
             parse();
         }
     }
 
-    public int getTag() {
+    public int getTag()
+    {
         return mTag;
     }
 
-    public byte[] getValue() {
+    public byte[] getValue()
+    {
         byte[] newArray = new byte[mLength];
         System.arraycopy(mValue, mIndex, newArray, 0, mLength);
         return newArray;
     }
 
-    public List<TLV> getChildren() {
+    public List<TLV> getChildren()
+    {
         return mChildren;
     }
 
-    public boolean isConstructed() {
+    public boolean isConstructed()
+    {
         final int CONSTRUCTED_BIT = 0x20;
         return (getFirstTagByte(mTag) & CONSTRUCTED_BIT) != 0;
     }
 
-    private void parse() throws TLVException {
+    private void parse() throws TLVException
+    {
         int index = mIndex;
         int endIndex = mIndex + mLength;
 
-        while (index < endIndex) {
-            int tag = (mValue[index++] & 0xFF);
+        while (index < endIndex)
+        {
+            int tag = getNext(index++);
 
             if (tag == 0x00 || tag == 0xFF)
                 continue;
 
-            if (tagHasMultipleBytes(tag)) {
+            if (tagHasMultipleBytes(tag))
+            {
                 tag <<= 8;
-                tag |= (mValue[index++] & 0xFF);
+                tag |= getNext(index++);
 
-                if (tagHasAnotherByte(tag)) {
+                if (tagHasAnotherByte(tag))
+                {
                     tag <<= 8;
-                    tag |= (mValue[index++] & 0xFF);
+                    tag |= getNext(index++);
                 }
 
                 if (tagHasAnotherByte(tag))
                     throw new TLVException();
             }
 
-            int length = (mValue[index++] & 0xFF);
+            int length = getNext(index++);
 
-            if (length >= 0x80) {
+            if (length >= 0x80)
+            {
                 int numLengthBytes = (length & 0x7F);
 
                 if (numLengthBytes > 3)
@@ -93,9 +107,10 @@ public class TLV {
 
                 length = 0;
 
-                for (int i = 0; i < numLengthBytes; i++) {
+                for (int i = 0; i < numLengthBytes; i++)
+                {
                     length <<= 8;
-                    length |= (mValue[index++] & 0xFF);
+                    length |= getNext(index++);
                 }
             }
 
@@ -105,23 +120,35 @@ public class TLV {
         }
     }
 
-    private int getLength() {
+    private int getLength()
+    {
         return mLength;
     }
 
-    private static int getFirstTagByte(int tag) {
+    private int getNext(int index) throws TLVException
+    {
+        if (index < mIndex || index >= mIndex + mLength)
+            throw new TLVException();
+
+        return (mValue[index] & 0xFF);
+    }
+
+    private static int getFirstTagByte(int tag)
+    {
         while (tag > 0xFF)
             tag >>= 8;
 
         return tag;
     }
 
-    private static boolean tagHasMultipleBytes(int tag) {
+    private static boolean tagHasMultipleBytes(int tag)
+    {
         final int MULTIBYTE_TAG_MASK = 0x1F;
         return (tag & MULTIBYTE_TAG_MASK) == MULTIBYTE_TAG_MASK;
     }
 
-    private static boolean tagHasAnotherByte(int tag) {
+    private static boolean tagHasAnotherByte(int tag)
+    {
         final int NEXT_BYTE = 0x80;
         return (tag & NEXT_BYTE) != 0;
     }
